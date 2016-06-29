@@ -5,7 +5,7 @@ import psycopg2
 import sqlalchemy
 import pyotp
 import logging
-from utils import email, time_diff
+from utils import email_otp, email_invite
 from model import Account, Product, AccountProduct, AccountProductContact, session_commit, add_row, delete_row
 from time import ctime
 from datetime import datetime
@@ -20,9 +20,11 @@ auth = HTTPBasicAuth()
 
 @auth.get_password
 def get_password(username):
-    if username == 'loopme':
-        return 'loopme'
-    return None
+    try:
+        act_rec = Account.query.filter_by(user_id=username).first()
+        return act_rec.access_token
+    except:
+        return make_response(jsonify({'error': 'Unauthorized access'}), 403)
 
 
 @auth.error_handler
@@ -94,7 +96,7 @@ def otp_send():
                 act_cur.last_updated_on = ctime()
                 session_commit()
                 res = jsonify({'result': 'modified'})
-            email(user_id, otp)
+            email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))
@@ -168,21 +170,19 @@ def get_products():
 
 
 @router.route('/v1.0/account_product_contact', methods=['POST'])
+@auth.login_required
 def map_account_product_contact():
-    if request.json.get('access_token') is None or request.json.get('user_id') is None \
-            or request.json.get('product_id') is None or request.json.get('contact_id') is None:
+    if request.json.get('product_id') is None or request.json.get('contact_id') is None:
         abort(400)
     else:
-        user_id = request.json.get('user_id')
-        access_token = request.json.get('access_token')
+        user_id = request.authorization.get('username')
         product_id = request.json.get('product_id')
         contact_id = request.json.get('contact_id')
         contact_name = request.json.get('name')
         contact_type = request.json.get('contact_type')
-
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()
-            if act_cur and act_cur.access_token == access_token and not user_id == contact_id:
+            if act_cur and not user_id == contact_id:
                 act_prod_cur = AccountProduct.query.filter_by(user_id=user_id, product_id=product_id).first()
                 if act_prod_cur.role == contact_type:
                     return make_response(jsonify({'result': 'role and contact type cannot be the same'}), 501)
@@ -205,19 +205,18 @@ def map_account_product_contact():
 
 
 @router.route('/v1.0/account_product_contact', methods=['DELETE'])
+@auth.login_required
 def delete_account_product_contact():
-    if request.json.get('access_token') is None or request.json.get('user_id') is None \
-            or request.json.get('product_id') is None or request.json.get('contact_id') is None:
+    if request.json.get('product_id') is None or request.json.get('contact_id') is None:
         abort(400)
     else:
-        user_id = request.json.get('user_id')
-        access_token = request.json.get('access_token')
+        user_id = request.authorization.get('username')
         product_id = request.json.get('product_id')
         contact_id = request.json.get('contact_id')
 
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()
-            if act_cur and act_cur.access_token == access_token and not user_id == contact_id:
+            if act_cur and not user_id == contact_id:
                 act_prod_cont = AccountProductContact.query.filter_by(user_id=user_id, product_id=product_id, contact_id=contact_id).first()
                 delete_rec = delete_row(act_prod_cont)
                 if not delete_rec:
@@ -231,13 +230,33 @@ def delete_account_product_contact():
             abort(400)
 
 
-@router.route('/todo/api/v1.0/tasks/<int:task_id>', methods=['GET'])
+@router.route('/v1.0/account_product_contact/<string:contact_id>', methods=['GET'])
 @auth.login_required
-def get_task(task_id):
-    task = filter(lambda t: t['id'] == task_id, tasks)
-    if len(task) == 0:
-        abort(404)
-    return jsonify({'task': make_public_task(task[0])})
+def get_account_product_contact(contact_id):
+    try:
+        act_cur = Account.query.filter_by(user_id=contact_id).first()
+        if act_cur:
+            return make_response(jsonify(act_cur.as_dict), 200)
+        else:
+            return make_response(jsonify({'result': 'user not present'}), 501)
+    except Exception, e:
+        logging.error(str(e))
+        abort(400)
+
+
+@router.route('/v1.0/invite/<string:contact_id>', methods=['GET'])
+@auth.login_required
+def invite_contact(contact_id):
+    try:
+        act_rec = Account.query.filter_by(user_id=contact_id).first()
+        if act_rec:
+            email_invite(request.authorization.get('username'), contact_id)
+            return make_response(jsonify({'result':'success. invite sent'}), 200)
+        else:
+            return make_response(jsonify({'result': 'user not present'}), 501)
+    except Exception, e:
+        logging.error(str(e))
+        abort(400)
 
 
 @router.route('/todo/api/v1.0/tasks', methods=['POST'])

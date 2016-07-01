@@ -6,7 +6,7 @@ import sqlalchemy
 import pyotp
 import logging
 from utils import email_otp, email_invite
-from model import Account, Product, AccountProduct, AccountProductContact, session_commit, add_row, delete_row
+from model import Account, Product, AccountProduct, AccountProductContact, AccountProductCalendar, session_commit, add_row, delete_row
 from time import ctime
 from datetime import datetime
 
@@ -43,32 +43,6 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
-tasks = [
-    {
-        'id': 1,
-        'title': u'Buy groceries',
-        'description': u'Milk, Cheese, Pizza, Fruit, Tylenol',
-        'done': False
-    },
-    {
-        'id': 3,
-        'title': u'Learn Python',
-        'description': u'Need to find a good Python tutorial on the web',
-        'done': False
-    }
-]
-
-
-def make_public_task(task):
-    new_task = {}
-    for field in task:
-        if field == 'id':
-            new_task['uri'] = url_for('get_task', task_id=task['id'], _external=True)
-        else:
-            new_task[field] = task[field]
-    return new_task
-
-
 # READ
 @router.route('/accounts')
 def account_all():
@@ -103,6 +77,13 @@ def otp_send():
             abort(400)
 
 
+@router.route('/v1.0/products', methods=['GET'])
+def get_products():
+    """return jsonify({'products': map(make_public_task, tasks)})"""
+    products = Product.query.all()
+    return make_response(jsonify([product.as_dict() for product in products]))
+
+
 # Validate OTP and Create Access Token
 @router.route('/v1.0/auth', methods=['POST'])
 def otp_validate():
@@ -112,17 +93,20 @@ def otp_validate():
         user_id = request.json.get('mobile')
         otp = request.json.get('otp')
         try:
-            act_cur = Account.query.filter_by(user_id=user_id).first()
-            if act_cur and act_cur.otp == otp:
-                time_difference = datetime.strptime(ctime(), "%a %b %d %H:%M:%S %Y") - act_cur.last_updated_on
+            act_rec = Account.query.filter_by(user_id=user_id).first()
+            if act_rec and act_rec.otp == otp:
+                time_difference = datetime.strptime(ctime(), "%a %b %d %H:%M:%S %Y") - act_rec.last_updated_on
                 if time_difference.seconds > 600:
                     res = make_response(jsonify({'result': 'otp expired'}), 400)
                     return res
                 access_token = pyotp.random_base32()
-                act_cur.access_token = access_token
-                act_cur.last_updated_on = ctime()
+                act_rec.access_token = access_token
+                act_rec.last_updated_on = ctime()
                 session_commit()
-                res = make_response(jsonify({'access_token': access_token}), 200)
+                map_products(user_id, request.json.get('products'))
+                act_product_details = get_account_product_all(user_id)
+                act_product_details['access_token'] = access_token
+                res = make_response(jsonify(act_product_details), 200)
                 return res
             else:
                 abort(400)
@@ -131,6 +115,7 @@ def otp_validate():
             abort(400)
 
 
+# deprecated as it is merged with auth api
 @router.route('/v1.0/account_product', methods=['POST'])
 def map_account_product():
     if request.json.get('access_token') is None or request.json.get('user_id') is None \
@@ -142,17 +127,7 @@ def map_account_product():
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()
             if act_cur and act_cur.access_token == access_token:
-                for prod in request.json.get('products'):
-                    product_id = prod.get("product_id")
-                    role = prod.get("role")
-                    act_prod_cur = AccountProduct.query.filter_by(user_id=user_id, product_id=product_id).first()
-                    if not act_prod_cur:
-                        account_product = AccountProduct(user_id, product_id, role)
-                        add_row(account_product)
-                    else:
-                        act_prod_cur.role = role
-                        session_commit()
-
+                map_products(user_id, request.json.get('products'))
                 res = make_response(jsonify({'result': 'success'}), 200)
                 return res
             else:
@@ -162,11 +137,12 @@ def map_account_product():
             abort(400)
 
 
-@router.route('/v1.0/products', methods=['GET'])
-def get_products():
-    """return jsonify({'products': map(make_public_task, tasks)})"""
-    products = Product.query.all()
-    return make_response(jsonify([product.as_dict() for product in products]))
+@router.route('/v1.0/account_products', methods=['GET'])
+@auth.login_required
+def get_account_products():
+    user_id = request.authorization.get('username')
+    act_product_details = get_account_product_all(user_id)
+    return make_response(jsonify(act_product_details), 200)
 
 
 @router.route('/v1.0/account_product_contact', methods=['POST'])
@@ -230,15 +206,15 @@ def delete_account_product_contact():
             abort(400)
 
 
-@router.route('/v1.0/account_product_contact/<string:contact_id>', methods=['GET'])
+@router.route('/v1.0/product/<int:product_id>/contact/<string:contact_id>', methods=['GET'])
 @auth.login_required
-def get_account_product_contact(contact_id):
+def get_account_product_contact(product_id, contact_id):
     try:
-        act_cur = Account.query.filter_by(user_id=contact_id).first()
-        if act_cur:
-            return make_response(jsonify(act_cur.as_dict), 200)
+        cal_rec = AccountProductCalendar.query.filter_by(user_id=contact_id, product_id=product_id).first()
+        if cal_rec:
+            return make_response(jsonify(cal_rec.calendar), 200)
         else:
-            return make_response(jsonify({'result': 'user not present'}), 501)
+            return make_response(jsonify({'result': 'user calendar not present'}), 501)
     except Exception, e:
         logging.error(str(e))
         abort(400)
@@ -251,7 +227,7 @@ def invite_contact(contact_id):
         act_rec = Account.query.filter_by(user_id=contact_id).first()
         if act_rec:
             email_invite(request.authorization.get('username'), contact_id)
-            return make_response(jsonify({'result':'success. invite sent'}), 200)
+            return make_response(jsonify({'result' : 'success. invite sent'}), 200)
         else:
             return make_response(jsonify({'result': 'user not present'}), 501)
     except Exception, e:
@@ -259,25 +235,66 @@ def invite_contact(contact_id):
         abort(400)
 
 
-@router.route('/todo/api/v1.0/tasks', methods=['POST'])
+@router.route('/v1.0/product/<int:product_id>/calendar', methods=['POST'])
 @auth.login_required
-def create_task():
-    if not request.json or not 'title' in request.json:
+def set_calendar(product_id):
+    try:
+        user_id = request.authorization.get('username')
+        calendar_json = request.json.get('calendar')
+        act_rec = AccountProduct.query.filter_by(user_id=user_id, product_id=product_id).first()
+        if act_rec and act_rec.role == 'PROVIDER':
+            cal_rec = AccountProductCalendar.query.filter_by(user_id=user_id, product_id=product_id).first()
+            if not cal_rec:
+                calendar = AccountProductCalendar(user_id, product_id, calendar_json, None)
+                add_row(calendar)
+                return make_response(jsonify({'result': 'success. Calendar added'}), 200)
+            else:
+                cal_rec.calendar = calendar_json
+                session_commit()
+                return make_response(jsonify({'result': 'success. Calendar modified'}), 200)
+        else:
+            return make_response(jsonify({'result': 'failed. User is not a PROVIDER'}), 501)
+    except Exception, e:
+        logging.error(str(e))
         abort(400)
-    task = {
-        'id': tasks[-1]['id'] + 1,
-        'title': request.json['title'],
-        'description': request.json.get('description', ""),
-        'done': False
-    }
-    tasks.append(task)
-    return jsonify({'task': make_public_task(task)}), 201
 
 
+def map_products(user_id, products):
+    if products:
+        for prod in request.json.get('products'):
+            product_id = prod.get("product_id")
+            role = prod.get("role")
+            act_prod_rec = AccountProduct.query.filter_by(user_id=user_id, product_id=product_id).first()
+            if not act_prod_rec:
+                account_product = AccountProduct(user_id, product_id, role)
+                add_row(account_product)
+            else:
+                act_prod_rec.role = role
+                session_commit()
+
+
+def get_account_product_all(user_id):
+    result = {}
+    products = AccountProduct.query.filter_by(user_id=user_id).all()
+    if products:
+        for prod in products:
+            result[prod.product_id] = {'contacts': [], 'calendar': {}}
+            contacts_list = AccountProductContact.query.\
+                filter_by(user_id=user_id, product_id=prod.product_id).all()
+            if contacts_list:
+                for con in contacts_list:
+                    result[prod.product_id]['contacts'].append(con.as_dict_min())
+            calendar_rec = AccountProductCalendar.query.filter_by(user_id=user_id, product_id=prod.product_id).first()
+            if calendar_rec:
+                result[prod.product_id]['calendar']= calendar_rec.calendar
+    return result
+
+
+# just for reference
 @router.route('/todo/api/v1.0/tasks/<int:task_id>', methods=['PUT'])
 @auth.login_required
 def update_task(task_id):
-    task = filter(lambda t: t['id'] == task_id, tasks)
+    task = filter(lambda t: t['id'] == task_id, tasks) # tasks is a list
     if len(task) == 0:
         abort(404)
     if not request.json:
@@ -289,17 +306,5 @@ def update_task(task_id):
     if 'done' in request.json and type(request.json['done']) is not bool:
         abort(400)
 
-    task[0]['title'] = request.json.get('title', task[0]['title'])
-    task[0]['description'] = request.json.get('description', task[0]['description'])
-    task[0]['done'] = request.json.get('done', task[0]['done'])
-    return jsonify({'task': make_public_task(task[0])})
 
 
-@router.route('/todo/api/v1.0/tasks/<int:task_id>', methods=['DELETE'])
-@auth.login_required
-def delete_task(task_id):
-    task = filter(lambda t: t['id'] == task_id, tasks)
-    if len(task) == 0:
-        abort(404)
-    tasks.remove(task[0])
-    return jsonify({'result': True})

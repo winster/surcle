@@ -2,6 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from time import ctime
 from app import db
 from stripped_string import StrippedString
+from sqlalchemy.dialects.postgresql import JSON
 import logging
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT,level=logging.DEBUG)
@@ -85,6 +86,34 @@ class AccountProductContact(db.Model):
     def __repr__(self):
         return '<AccountProductContact user_id=%s, product_id=%s, contact_id=%s, name=%s, contact_type=%s  >'\
                % (self.user_id, self.product_id, self.contact_id, self.name, self.contact_type)
+
+    def as_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+    def as_dict_min(self):
+        json_list = ['contact_id', 'name', 'contact_type']
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns if c.name in json_list }
+
+
+# Create the AccountProductCalendar Class
+class AccountProductCalendar(db.Model):
+    user_id = db.Column(StrippedString, primary_key=True)
+    product_id = db.Column(db.INTEGER, primary_key=True)
+    calendar = db.Column(JSON, nullable=False)
+    events = db.Column(JSON, nullable=True)
+    created_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+    last_updated_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
+
+    def __init__(self, user_id, product_id, calendar, events):
+        self.user_id = user_id
+        self.product_id = product_id
+        self.calendar = calendar
+        self.events = events
+        self.created_on = ctime()
+        self.last_updated_on = ctime()
+
+    def __repr__(self):
+        return '<Calendar user_id=%s, product_id=%s>' % (self.user_id, self.product_id)
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}

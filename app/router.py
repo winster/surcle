@@ -137,6 +137,20 @@ def map_account_product():
             abort(400)
 
 
+@router.route('/v1.0/register', methods=['POST'])
+@auth.login_required
+def device_token():
+    user_id = request.authorization.get('username')
+    act_rec = Account.query.filter_by(user_id=user_id).first()
+    if act_rec and request.json.get('token'):
+        act_rec.device_token = request.json.get('token')
+        act_rec.last_updated_on = ctime()
+        session_commit()
+        return make_response(jsonify({'result':'success'}), 200)
+    else:
+        abort(400)
+
+
 @router.route('/v1.0/account_products', methods=['GET'])
 @auth.login_required
 def get_account_products():
@@ -259,6 +273,27 @@ def set_calendar(product_id):
         abort(400)
 
 
+@router.route('/v1.0/message', methods=['POST'])
+@auth.login_required
+def message():
+    try:
+        data = request.json
+        from_act_rec = Account.query.filter_by(device_token=data.get('from')).first()
+        if from_act_rec:
+            to_act_rec = Account.query.filter_by(user_id=data.get('to')).first()
+            if to_act_rec:
+                #handleMessageTypes(data) TODO such as calendar update
+                data['to'] = to_act_rec.device_token
+                return make_response(jsonify(data), 200)
+            else:
+                return make_response(jsonify({'result': 'user to not present'}), 501)
+        else:
+            return make_response(jsonify({'result': 'user from not present'}), 501)
+    except Exception, e:
+        logging.error(str(e))
+        abort(400)
+        
+        
 def map_products(user_id, products):
     if products:
         for prod in request.json.get('products'):

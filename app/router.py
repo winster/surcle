@@ -43,6 +43,11 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
+@router.errorhandler(401)
+def not_found(error):
+    return make_response(jsonify({'error': 'Auth failed'}), 401)
+
+
 # READ
 @router.route('/accounts')
 def account_all():
@@ -70,7 +75,7 @@ def otp_send():
                 act_cur.last_updated_on = ctime()
                 session_commit()
                 res = jsonify({'result': 'modified'})
-            email_otp(user_id, otp)
+            #email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))
@@ -87,6 +92,7 @@ def get_products():
 # Validate OTP and Create Access Token
 @router.route('/v1.0/auth', methods=['POST'])
 def otp_validate():
+    print request.json
     if request.json.get('mobile') is None or request.json.get('otp') is None :
         abort(400)
     else:
@@ -97,22 +103,20 @@ def otp_validate():
             if act_rec and act_rec.otp == otp:
                 time_difference = datetime.strptime(ctime(), "%a %b %d %H:%M:%S %Y") - act_rec.last_updated_on
                 if time_difference.seconds > 600:
-                    res = make_response(jsonify({'result': 'otp expired'}), 400)
-                    return res
+                    return make_response(jsonify({'result': 'otp expired'}), 502)
                 access_token = pyotp.random_base32()
                 act_rec.access_token = access_token
                 act_rec.last_updated_on = ctime()
                 session_commit()
                 map_products(user_id, request.json.get('products'))
                 act_product_details = get_account_product_all(user_id)
-                act_product_details['access_token'] = access_token
-                res = make_response(jsonify(act_product_details), 200)
-                return res
+                res= {'products' : act_product_details, 'access_token': access_token}
+                return make_response(jsonify(res), 200)
             else:
-                abort(400)
+                return make_response(jsonify({'result': 'invalid otp'}), 501)
         except Exception, e:
             logging.error(str(e))
-            abort(400)
+            abort(404)
 
 
 # deprecated as it is merged with auth api
@@ -131,7 +135,7 @@ def map_account_product():
                 res = make_response(jsonify({'result': 'success'}), 200)
                 return res
             else:
-                abort(400)
+                abort(400) #problem here, this will raise exception and get caught below
         except Exception, e:
             logging.error(str(e))
             abort(400)
@@ -169,6 +173,7 @@ def map_account_product_contact():
         product_id = request.json.get('product_id')
         contact_id = request.json.get('contact_id')
         contact_name = request.json.get('name')
+        thumbnail_url = request.json.get('thumbnail_url')
         contact_type = request.json.get('contact_type')
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()
@@ -178,7 +183,7 @@ def map_account_product_contact():
                     return make_response(jsonify({'result': 'role and contact type cannot be the same'}), 501)
                 else:
                     account_product_contact = AccountProductContact(user_id, product_id, contact_id,
-                                                                    contact_name, contact_type)
+                                                                    contact_name, thumbnail_url, contact_type)
                     add_contact = add_row(account_product_contact)
                     if not add_contact:
                         return make_response(jsonify({'result': 'contact already added'}), 501)
@@ -296,8 +301,7 @@ def message():
         
 def map_products(user_id, products):
     if products:
-        for prod in request.json.get('products'):
-            product_id = prod.get("product_id")
+        for product_id, prod in request.json.get('products').iteritems():
             role = prod.get("role")
             act_prod_rec = AccountProduct.query.filter_by(user_id=user_id, product_id=product_id).first()
             if not act_prod_rec:
@@ -313,7 +317,7 @@ def get_account_product_all(user_id):
     products = AccountProduct.query.filter_by(user_id=user_id).all()
     if products:
         for prod in products:
-            result[prod.product_id] = {'contacts': [], 'calendar': {}}
+            result[prod.product_id] = {'contacts': [], 'calendar': {}, 'role': prod.role}
             contacts_list = AccountProductContact.query.\
                 filter_by(user_id=user_id, product_id=prod.product_id).all()
             if contacts_list:
@@ -340,6 +344,4 @@ def update_task(task_id):
         abort(400)
     if 'done' in request.json and type(request.json['done']) is not bool:
         abort(400)
-
-
 

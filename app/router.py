@@ -285,12 +285,12 @@ def set_calendar(product_id):
 def message():
     try:
         data = request.json
-        from_act_rec = Account.query.filter_by(device_token=data.get('from')).first()
+        from_act_rec = Account.query.filter_by(user_id=data.get('from')).first()
         if from_act_rec:
             to_act_rec = Account.query.filter_by(user_id=data.get('to')).first()
             if to_act_rec:
                 #handleMessageTypes(data) TODO such as calendar update
-                data['to'] = to_act_rec.device_token
+                data['token'] = to_act_rec.device_token
                 return make_response(jsonify(data), 200)
             else:
                 return make_response(jsonify({'result': 'user to not present'}), 501)

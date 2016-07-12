@@ -306,17 +306,13 @@ def requires_auth(f):
 def message():
     try:
         data = request.json
-        from_act_rec = Account.query.filter_by(user_id=data.get('from')).first()
-        if from_act_rec:
-            to_act_rec = Account.query.filter_by(user_id=data.get('to')).first()
-            if to_act_rec:
-                #handleMessageTypes(data) TODO such as calendar update
-                data['token'] = to_act_rec.device_token
-                return make_response(jsonify(data), 200)
-            else:
-                return make_response(jsonify({'result': 'user to not present'}), 501)
+        to_act_rec = Account.query.filter_by(user_id=data.get('to')).first()
+        if to_act_rec:
+            #handleMessageTypes(data) TODO such as calendar update
+            data['token'] = to_act_rec.device_token
+            return make_response(jsonify(data), 200)
         else:
-            return make_response(jsonify({'result': 'user from not present'}), 501)
+            return make_response(jsonify({'result': 'user to not present'}), 501)
     except Exception, e:
         logging.error(str(e))
         abort(400)

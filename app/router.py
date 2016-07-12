@@ -1,5 +1,6 @@
 from flask import render_template, request, flash, redirect, url_for, jsonify, abort, make_response, Blueprint
 from flask_httpauth import HTTPBasicAuth
+from functools import wraps
 import json
 import psycopg2
 import sqlalchemy
@@ -280,10 +281,29 @@ def set_calendar(product_id):
         abort(400)
 
 
+def check_token(username, token):
+    try:
+        act_rec = Account.query.filter_by(user_id=username).first()
+        if act_rec and act_rec.device_token == token:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_token(auth.username, auth.password):
+            return make_response(jsonify({'error': 'Unauthorized access'}), 403)
+        return f(*args, **kwargs)
+    return decorated
+
+
 @router.route('/v1.0/message', methods=['POST'])
-@auth.login_required
+@requires_auth
 def message():
-    print "<<inside message>>"
     try:
         data = request.json
         from_act_rec = Account.query.filter_by(user_id=data.get('from')).first()

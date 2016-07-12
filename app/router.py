@@ -64,18 +64,20 @@ def otp_send():
         user_id = request.json.get('mobile')
         otp = pyotp.TOTP('base32secret3232').now()
         try:
-            act = Account(user_id, otp)
-            account_added = add_row(act)
-            if account_added:
-                res = jsonify({'result': 'created'})
-            else:
-                act_cur = Account.query.filter_by(user_id=user_id).first()
-                logging.info(act_cur.as_dict())
-                act_cur.otp = otp
-                act_cur.last_updated_on = ctime()
+            act_rec = Account.query.filter_by(user_id=user_id).first()
+            if act_rec:
+                act_rec.otp = otp
+                act_rec.last_updated_on = ctime()
                 session_commit()
                 res = jsonify({'result': 'modified'})
-            #email_otp(user_id, otp)
+            else:
+                act = Account(user_id, otp)
+                account_added = add_row(act)
+                if account_added:
+                    res = jsonify({'result': 'created'})
+                else:
+                    return make_response(jsonify({'result': 'failed'}), 501)
+            email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))
@@ -141,7 +143,7 @@ def map_account_product():
             abort(400)
 
 
-@router.route('/v1.0/register', methods=['POST'])
+@router.route('/v1.0/token', methods=['POST'])
 @auth.login_required
 def device_token():
     user_id = request.authorization.get('username')

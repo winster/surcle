@@ -13,6 +13,7 @@ class Account(db.Model):
     user_id = db.Column(StrippedString, primary_key=True)
     otp = db.Column(StrippedString, nullable=False)
     access_token = db.Column(StrippedString, nullable=True)
+    device_token = db.Column(StrippedString, nullable=True)
     created_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     last_updated_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
 
@@ -126,7 +127,8 @@ def add_row(row):
         db.session.add(row)
         db.session.commit()
         return True
-    except:
+    except ValueError as e:
+        print e
         db.session.rollback()
         return False
 
@@ -150,6 +152,7 @@ def session_commit():
         logging.info(reason)
         raise e
 
+db.drop_all()
 db.create_all()
 
 if len(Product.query.all()) == 0:

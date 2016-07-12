@@ -283,6 +283,7 @@ def set_calendar(product_id):
 @router.route('/v1.0/message', methods=['POST'])
 @auth.login_required
 def message():
+    print "<<inside message>>"
     try:
         data = request.json
         from_act_rec = Account.query.filter_by(user_id=data.get('from')).first()

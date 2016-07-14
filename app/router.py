@@ -78,7 +78,7 @@ def otp_send():
                     res = jsonify({'result': 'created'})
                 else:
                     return make_response(jsonify({'result': 'failed'}), 501)
-            email_otp(user_id, otp)
+            #email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))
@@ -147,10 +147,12 @@ def map_account_product():
 @router.route('/v1.0/token', methods=['POST'])
 @auth.login_required
 def device_token():
+    print "inside online"
     user_id = request.authorization.get('username')
     act_rec = Account.query.filter_by(user_id=user_id).first()
     if act_rec and request.json.get('token'):
         act_rec.device_token = request.json.get('token')
+        act_rec.online = True
         act_rec.last_updated_on = ctime()
         session_commit()
         return make_response(jsonify({'result':'success'}), 200)
@@ -158,6 +160,22 @@ def device_token():
         abort(400)
 
 
+@router.route('/v1.0/offline', methods=['POST'])
+@auth.login_required
+def offline():
+    print "inside offline"
+    user_id = request.authorization.get('username')
+    act_rec = Account.query.filter_by(user_id=user_id).first()
+    if act_rec:
+        act_rec.online = False
+        act_rec.last_updated_on = ctime()
+        session_commit()
+        return make_response(jsonify({'result':'success'}), 200)
+    else:
+        abort(400)
+
+
+# deprecated. All data has to be cached on server
 @router.route('/v1.0/account_products', methods=['GET'])
 @auth.login_required
 def get_account_products():

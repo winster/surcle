@@ -15,6 +15,7 @@ class Account(db.Model):
     access_token = db.Column(StrippedString, nullable=True)
     device_token = db.Column(StrippedString, nullable=True)
     online = db.Column(db.BOOLEAN, nullable=True)
+    connection_id = db.Column(StrippedString, nullable=True)
     created_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     last_updated_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
 

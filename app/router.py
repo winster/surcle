@@ -24,7 +24,8 @@ def get_password(username):
     try:
         act_rec = Account.query.filter_by(user_id=username).first()
         return act_rec.access_token
-    except:
+    except ValueError as error:
+        print error.message
         return make_response(jsonify({'error': 'Unauthorized access'}), 403)
 
 
@@ -156,6 +157,21 @@ def device_token():
         act_rec.last_updated_on = ctime()
         session_commit()
         return make_response(jsonify({'result':'success'}), 200)
+    else:
+        abort(400)
+
+
+@router.route('/v1.0/socket', methods=['POST'])
+@auth.login_required
+def socket_connection():
+    print "inside socket"
+    user_id = request.authorization.get('username')
+    act_rec = Account.query.filter_by(user_id=user_id).first()
+    if act_rec and request.json.get('connection_id'):
+        act_rec.connection_id = request.json.get('connection_id')
+        act_rec.last_updated_on = ctime()
+        session_commit()
+        return make_response(jsonify({'result': 'success'}), 200)
     else:
         abort(400)
 
@@ -298,37 +314,41 @@ def set_calendar(product_id):
         logging.error(str(e))
         abort(400)
 
-
-def check_token(username, token):
-    try:
-        act_rec = Account.query.filter_by(user_id=username).first()
-        if act_rec and act_rec.device_token == token:
-            return True
-        else:
-            return False
-    except:
-        return False
-
-def requires_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth = request.authorization
-        if not auth or not check_token(auth.username, auth.password):
-            return make_response(jsonify({'error': 'Unauthorized access'}), 403)
-        return f(*args, **kwargs)
-    return decorated
-
+#
+#def check_token(username, token):
+#    try:
+#        act_rec = Account.query.filter_by(user_id=username).first()
+#        if act_rec and act_rec.access_token == token:
+#            return True
+#        else:
+#            return False
+#    except:
+#        return False
+#
+#def requires_auth(f):
+#    @wraps(f)
+#    def decorated(*args, **kwargs):
+#        auth = request.authorization
+#        if not auth or not check_token(auth.username, auth.password):
+#            return make_response(jsonify({'error': 'Unauthorized access'}), 403)
+#        return f(*args, **kwargs)
+#    return decorated
+#
 
 @router.route('/v1.0/message', methods=['POST'])
-@requires_auth
+@auth.login_required
 def message():
     try:
-        data = request.json
-        to_act_rec = Account.query.filter_by(user_id=data.get('to')).first()
+        input = request.json
+        to_act_rec = Account.query.filter_by(user_id=input.get('to')).first()
         if to_act_rec:
-            #handleMessageTypes(data) TODO such as calendar update
-            data['token'] = to_act_rec.device_token
-            return make_response(jsonify(data), 200)
+            #handleMessageTypes(input.data) TODO such as calendar update
+            result = {'online': to_act_rec.online}
+            if to_act_rec.online is False:
+                result['token'] = to_act_rec.device_token
+            else:
+                result['connection_id'] = to_act_rec.connection_id
+            return make_response(jsonify(result), 200)
         else:
             return make_response(jsonify({'result': 'user to not present'}), 501)
     except Exception, e:

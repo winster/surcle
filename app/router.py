@@ -343,10 +343,8 @@ def message():
         to_act_rec = Account.query.filter_by(user_id=input.get('to')).first()
         if to_act_rec:
             #handleMessageTypes(input.data) TODO such as calendar update
-            result = {'online': to_act_rec.online}
-            if to_act_rec.online is False:
-                result['token'] = to_act_rec.device_token
-            else:
+            result = {'online': to_act_rec.online, 'token': to_act_rec.device_token}
+            if to_act_rec.online is True:
                 result['connection_id'] = to_act_rec.connection_id
             return make_response(jsonify(result), 200)
         else:

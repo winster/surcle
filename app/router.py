@@ -60,6 +60,7 @@ def account_all():
 # Generate OTP, Create Account; Update OTP in Account
 @router.route('/v1.0/otp', methods=['POST'])
 def otp_send():
+    print "inside sendotp"
     if not request.json.get('mobile'):
         abort(400)
     else:
@@ -148,7 +149,7 @@ def map_account_product():
 @router.route('/v1.0/token', methods=['POST'])
 @auth.login_required
 def device_token():
-    print "inside online"
+    print "inside device_token"
     user_id = request.authorization.get('username')
     act_rec = Account.query.filter_by(user_id=user_id).first()
     if act_rec and request.json.get('token'):

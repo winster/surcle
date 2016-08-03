@@ -170,6 +170,7 @@ def socket_connection():
     act_rec = Account.query.filter_by(user_id=user_id).first()
     if act_rec and request.json.get('connection_id'):
         act_rec.connection_id = request.json.get('connection_id')
+        act_rec.online = True
         act_rec.last_updated_on = ctime()
         session_commit()
         return make_response(jsonify({'result': 'success'}), 200)

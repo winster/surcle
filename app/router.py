@@ -238,10 +238,10 @@ def map_account_product_contact():
             abort(400)
 
 
-@router.route('/v1.0/account_product_contact', methods=['DELETE'])
+@router.route('/v1.0/product/<int:product_id>/contact/<string:contact_id>', methods=['DELETE'])
 @auth.login_required
-def delete_account_product_contact():
-    if request.json.get('product_id') is None or request.json.get('contact_id') is None:
+def delete_account_product_contact(product_id, contact_id):
+    if product_id is None or contact_id is None:
         abort(400)
     else:
         user_id = request.authorization.get('username')

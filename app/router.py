@@ -245,8 +245,8 @@ def delete_account_product_contact(product_id, contact_id):
         abort(400)
     else:
         user_id = request.authorization.get('username')
-        product_id = request.json.get('product_id')
-        contact_id = request.json.get('contact_id')
+        #product_id = request.json.get('product_id')
+        #contact_id = request.json.get('contact_id')
 
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()

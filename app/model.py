@@ -156,7 +156,7 @@ def session_commit():
         logging.info(reason)
         raise e
 
-db.drop_all()
+#db.drop_all()
 db.create_all()
 
 if len(Product.query.all()) == 0:

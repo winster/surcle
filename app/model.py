@@ -16,6 +16,8 @@ class Account(db.Model):
     device_token = db.Column(StrippedString, nullable=True)
     online = db.Column(db.BOOLEAN, nullable=True)
     connection_id = db.Column(StrippedString, nullable=True)
+    profilepic_url = db.Column(StrippedString, nullable=True)
+    logo_url = db.Column(StrippedString, nullable=True)
     created_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     last_updated_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
 
@@ -77,20 +79,20 @@ class AccountProductContact(db.Model):
     product_id = db.Column(db.INTEGER, primary_key=True)
     contact_id = db.Column(StrippedString, primary_key=True)
     name = db.Column(StrippedString, nullable=False)
-    thumbnail_url = db.Column(StrippedString, nullable=False)
+    #thumbnail_url = db.Column(StrippedString, nullable=False)
     contact_type = db.Column(StrippedString, nullable=False)
 
-    def __init__(self, user_id, product_id, contact_id, name, thumbnail_url, contact_type):
+    def __init__(self, user_id, product_id, contact_id, name, contact_type):
         self.user_id = user_id
         self.product_id = product_id
         self.contact_id = contact_id
         self.name = name
-        self.thumbnail_url = thumbnail_url
+        #self.thumbnail_url = thumbnail_url
         self.contact_type = contact_type
 
     def __repr__(self):
-        return '<AccountProductContact user_id=%s, product_id=%s, contact_id=%s, name=%s, thumbnail_url=%s, contact_type=%s >'\
-               % (self.user_id, self.product_id, self.contact_id, self.name, self.thumbnail_url, self.contact_type)
+        return '<AccountProductContact user_id=%s, product_id=%s, contact_id=%s, name=%s, contact_type=%s >'\
+               % (self.user_id, self.product_id, self.contact_id, self.name, self.contact_type)
 
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}

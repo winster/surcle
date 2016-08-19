@@ -3,7 +3,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, MigrateCommand
 from flask_script import Manager
 
-app = Flask(__name__, static_url_path="/static")
+#app = Flask(__name__, static_url_path="/static")
+app = Flask(__name__)
 
 #office
 #app.config['SQLALCHEMY_DATABASE_URI']= 'postgresql://postgres:postgres@localhost:5432/loopme'
@@ -29,6 +30,6 @@ from router import router
 app.register_blueprint(router)
 
 
-@app.route('/')
-def root():
-    return app.send_static_file('index.html')
+#@app.route('/')
+#def root():
+#    return app.send_static_file('index.html')

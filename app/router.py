@@ -10,6 +10,9 @@ from utils import email_otp, email_invite
 from model import Account, Product, AccountProduct, AccountProductContact, AccountProductCalendar, session_commit, add_row, delete_row
 from time import ctime
 from datetime import datetime
+import base64
+import os
+from gcloud import storage
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -17,7 +20,7 @@ logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 router = Blueprint('router', __name__)
 
 auth = HTTPBasicAuth()
-
+CLOUD_STORAGE_BUCKET = 'chirpy-images-bucket'
 
 @auth.get_password
 def get_password(username):
@@ -212,7 +215,7 @@ def map_account_product_contact():
         product_id = request.json.get('product_id')
         contact_id = request.json.get('contact_id')
         contact_name = request.json.get('name')
-        thumbnail_url = request.json.get('thumbnail_url')
+        #thumbnail_url = request.json.get('thumbnail_url')
         contact_type = request.json.get('contact_type')
         try:
             act_cur = Account.query.filter_by(user_id=user_id).first()
@@ -222,13 +225,13 @@ def map_account_product_contact():
                     return make_response(jsonify({'result': 'role and contact type cannot be the same'}), 501)
                 else:
                     account_product_contact = AccountProductContact(user_id, product_id, contact_id,
-                                                                    contact_name, thumbnail_url, contact_type)
+                                                                    contact_name, contact_type)
                     add_contact = add_row(account_product_contact)
                     if not add_contact:
                         return make_response(jsonify({'result': 'contact already added'}), 501)
                     contact_cur = Account.query.filter_by(user_id=contact_id).first()
                     if contact_cur and contact_cur.access_token:
-                        return make_response(jsonify({'result': 'success'}), 200)
+                        return make_response(jsonify({'result':contact_cur.as_dict()}), 200)
                     else:
                         return make_response(jsonify({'result': 'contact does not exist in system'}), 200)
             else:
@@ -316,6 +319,7 @@ def set_calendar(product_id):
         logging.error(str(e))
         abort(400)
 
+
 #
 #def check_token(username, token):
 #    try:
@@ -336,7 +340,6 @@ def set_calendar(product_id):
 #        return f(*args, **kwargs)
 #    return decorated
 #
-
 @router.route('/v1.0/message', methods=['POST'])
 @auth.login_required
 def message():
@@ -354,8 +357,72 @@ def message():
     except Exception, e:
         logging.error(str(e))
         abort(400)
-        
-        
+       
+
+#
+#  image upload
+#
+@router.route('/v1.0/image',methods=['POST'])
+@auth.login_required
+def upload_images():
+    try:
+        user_id = request.authorization.get('username')
+        file = request.files['uploaded_file']
+        filename = file.filename
+        #folder = 'app/static/images/{0}/'.format(user_id)
+        #completeName = folder+filename
+        #dir = os.path.dirname(completeName)
+        #if not os.path.exists(dir):
+        #    os.makedirs(dir)
+        #file.save(completeName)
+        #file.close()
+        completeName = "{0}-{1}".format(user_id,filename)
+        # Create a Cloud Storage client.
+        gcs = storage.Client()
+        # Get the bucket that the file will be uploaded to.
+        bucket = gcs.get_bucket(CLOUD_STORAGE_BUCKET)
+        # Create a new blob and upload the file's content.
+        blob = bucket.blob(completeName)
+        blob.upload_from_string(
+            file.read(),
+            content_type=file.content_type
+        )
+        print "after file is uploaded::{0}".format(blob.public_url)
+        # The public URL can be used to directly access the uploaded file via HTTP.        
+        return make_response(jsonify({'url': blob.public_url}), 200)
+    except Exception, e:
+        logging.error(str(e))
+        abort(400)
+
+
+# Update image url to Account
+@router.route('/v1.0/image_url', methods=['POST'])
+@auth.login_required
+def update_image_url():
+    print request.json
+    if request.json.get('url') is None or request.json.get('type') is None :
+        abort(400)
+    else:
+        user_id = request.authorization.get('username')
+        img_type = request.json.get('type')
+        url = request.json.get('url')
+        try:
+            act_rec = Account.query.filter_by(user_id=user_id).first()
+            if act_rec:
+                if img_type == 'logo':
+                    act_rec.logo_url = url
+                elif img_type == 'profilepic':
+                    act_rec.profilepic_url = url
+                act_rec.last_updated_on = ctime()
+                session_commit()
+                return make_response(jsonify({'result': 'success'}), 200)
+            else:
+                return make_response(jsonify({'result': 'Account does not exist'}), 501)
+        except Exception, e:
+            logging.error(str(e))
+            abort(404)
+    
+
 def map_products(user_id, products):
     if products:
         for product_id, prod in request.json.get('products').iteritems():
@@ -379,26 +446,13 @@ def get_account_product_all(user_id):
                 filter_by(user_id=user_id, product_id=prod.product_id).all()
             if contacts_list:
                 for con in contacts_list:
-                    result[prod.product_id]['contacts'].append(con.as_dict_min())
+                    con_dict = con.as_dict_min()
+                    contact_cur = Account.query.filter_by(user_id=con.contact_id).first()
+                    if contact_cur and contact_cur.access_token:
+                        con_dict['profilepic_url'] = contact_cur.profilepic_url
+                        con_dict['logo_url'] = contact_cur.logo_url                        
+                    result[prod.product_id]['contacts'].append(con_dict)
             calendar_rec = AccountProductCalendar.query.filter_by(user_id=user_id, product_id=prod.product_id).first()
             if calendar_rec:
                 result[prod.product_id]['calendar']= calendar_rec.calendar
     return result
-
-
-# just for reference
-@router.route('/todo/api/v1.0/tasks/<int:task_id>', methods=['PUT'])
-@auth.login_required
-def update_task(task_id):
-    task = filter(lambda t: t['id'] == task_id, tasks) # tasks is a list
-    if len(task) == 0:
-        abort(404)
-    if not request.json:
-        abort(400)
-    if 'title' in request.json and type(request.json['title']) != unicode:
-        abort(400)
-    if 'description' in request.json and type(request.json['description']) is not unicode:
-        abort(400)
-    if 'done' in request.json and type(request.json['done']) is not bool:
-        abort(400)
-

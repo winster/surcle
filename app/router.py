@@ -207,7 +207,7 @@ def get_account_products():
 
 @router.route('/v1.0/account_product_contact', methods=['POST'])
 @auth.login_required
-def map_account_product_contact():
+def add_account_product_contact():
     if request.json.get('product_id') is None or request.json.get('contact_id') is None:
         abort(400)
     else:
@@ -422,6 +422,21 @@ def update_image_url():
             logging.error(str(e))
             abort(404)
     
+
+@router.route('/v1.0/account/<string:user_id>', methods=['GET'])
+@auth.login_required
+def get_account(user_id):
+    try:
+        act_rec = Account.query.filter_by(user_id=user_id).first()
+        if act_rec:
+            act_res = {'profilepic_url' : act_rec.profilepic_url, 'logo_url' : act_rec.logo_url}
+            return make_response(jsonify(act_res), 200)
+        else:
+            return make_response(jsonify({'result': 'user not present'}), 501)
+    except Exception, e:
+        logging.error(str(e))
+        abort(400)
+
 
 def map_products(user_id, products):
     if products:

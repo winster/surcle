@@ -38,6 +38,7 @@ class Account(db.Model):
 class Product(db.Model):
     product_id = db.Column(db.INTEGER, primary_key=True)
     name = db.Column(StrippedString, nullable=False)
+    #status = db.Column(StrippedString, nullable=False)
     description = db.Column(StrippedString, nullable=False)
     created_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     last_updated_on = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())

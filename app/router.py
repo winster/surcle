@@ -83,7 +83,7 @@ def otp_send():
                     res = jsonify({'result': 'created'})
                 else:
                     return make_response(jsonify({'result': 'failed'}), 501)
-            email_otp(user_id, otp)
+            #email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))
@@ -91,6 +91,7 @@ def otp_send():
 
 
 @router.route('/v1.0/products', methods=['GET'])
+@auth.login_required
 def get_products():
     """return jsonify({'products': map(make_public_task, tasks)})"""
     products = Product.query.all()
@@ -116,9 +117,9 @@ def otp_validate():
                 act_rec.access_token = access_token
                 act_rec.last_updated_on = ctime()
                 session_commit()
-                map_products(user_id, request.json.get('products'))
-                act_product_details = get_account_product_all(user_id)
-                res= {'products' : act_product_details, 'access_token': access_token}
+                #map_products(user_id, request.json.get('products'))
+                products = Product.query.all()
+                res= {'products' : [product.as_dict() for product in products], 'access_token': access_token}
                 return make_response(jsonify(res), 200)
             else:
                 return make_response(jsonify({'result': 'invalid otp'}), 501)
@@ -127,23 +128,18 @@ def otp_validate():
             abort(404)
 
 
-# deprecated as it is merged with auth api
-@router.route('/v1.0/account_product', methods=['POST'])
+@router.route('/v1.0/account_products', methods=['POST'])
+@auth.login_required
 def map_account_product():
-    if request.json.get('access_token') is None or request.json.get('user_id') is None \
-                or request.json.get('products') is None:
+    if request.json.get('products') is None:
         abort(400)
     else:
-        user_id = request.json.get('user_id')
-        access_token = request.json.get('access_token')
+        user_id = request.authorization.get('username')
         try:
-            act_cur = Account.query.filter_by(user_id=user_id).first()
-            if act_cur and act_cur.access_token == access_token:
-                map_products(user_id, request.json.get('products'))
-                res = make_response(jsonify({'result': 'success'}), 200)
-                return res
-            else:
-                abort(400) #problem here, this will raise exception and get caught below
+            map_products(user_id, request.json.get('products'))
+            act_product_details = get_account_product_all(user_id)
+            res= {'products' : act_product_details}
+            return make_response(jsonify(res), 200)
         except Exception, e:
             logging.error(str(e))
             abort(400)

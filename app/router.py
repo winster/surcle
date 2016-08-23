@@ -83,7 +83,7 @@ def otp_send():
                     res = jsonify({'result': 'created'})
                 else:
                     return make_response(jsonify({'result': 'failed'}), 501)
-            #email_otp(user_id, otp)
+            email_otp(user_id, otp)
             return make_response(res, 200)
         except Exception, e:
             logging.error(str(e))

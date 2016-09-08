@@ -451,6 +451,7 @@ def invite_status():
             user_list = []
             for row in result:
                 user_list.append(row[0])
+            print "before sending response"
             return make_response(jsonify(user_list), 200)
         except Exception, e:
             logging.error(str(e))

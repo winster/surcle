@@ -4,6 +4,8 @@ from functools import wraps
 import json
 import psycopg2
 import sqlalchemy
+from sqlalchemy import text
+from app import db
 import pyotp
 import logging
 from utils import email_otp, email_invite
@@ -432,6 +434,27 @@ def get_account(user_id):
     except Exception, e:
         logging.error(str(e))
         abort(400)
+
+
+@router.route('/v1.0/invite_status', methods=['POST'])
+@auth.login_required
+def invite_status():
+    print "inside invite_status"
+    if request.json is None:
+        abort(400)
+    else:
+        users = "','".join(request.json)
+        users = "'{0}'".format(users)
+        try:        
+            sql = text('select user_id from account where user_id in ({0})'.format(users))
+            result = db.engine.execute(sql)
+            user_list = []
+            for row in result:
+                user_list.append(row[0])
+            return make_response(jsonify(user_list), 200)
+        except Exception, e:
+            logging.error(str(e))
+            abort(400)
 
 
 def map_products(user_id, products):

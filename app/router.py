@@ -485,6 +485,9 @@ def get_account_product_all(user_id):
                     if contact_cur and contact_cur.access_token:
                         con_dict['profilepic_url'] = contact_cur.profilepic_url
                         con_dict['logo_url'] = contact_cur.logo_url                        
+                        con_dict['status'] = 0
+                    else:
+                        con_dict['status'] = 1                   
                     result[prod.product_id]['contacts'].append(con_dict)
             calendar_rec = AccountProductCalendar.query.filter_by(user_id=user_id, product_id=prod.product_id).first()
             if calendar_rec:

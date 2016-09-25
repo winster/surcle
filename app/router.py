@@ -559,6 +559,7 @@ def receipt():
         else:
             options = { 'delivery_receipt_requested': True }
             xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
+    return make_response(jsonify({'result':'success'}))
             
 
 def random_id():

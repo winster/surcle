@@ -18,7 +18,7 @@ import gevent
 from flask_sockets import Sockets
 import uuid,json,random,string
 from xmppgcm import GCM, XMPPEvent
-
+import ast
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -514,6 +514,7 @@ def web_socket(socket):
         if message != 'ping':
             logging.debug('message received : {0}'.format(message))
             payload = json.loads(message)
+            logging.debug('message after json loads : {0}'.format(payload))
             to_act_rec = Account.query.filter_by(user_id=payload.to).first()
             if to_act_rec:
                 #handleMessageTypes(input.data) TODO such as calendar update

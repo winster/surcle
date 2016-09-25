@@ -542,7 +542,7 @@ def delete_socket():
 def receipt():
     input = request.json
     logging.debug('receipt: {0}', json.dumps(input))
-    if not input.user or not input.token or not input.to or not input.product_id or not input.message_id or not input.message_type:
+    if not input['user'] or not input['token'] or not input['to'] or not input['product_id'] or not input['message_id'] or not input['message_type']:
         msg = {error:"Input missing",errorCode:"101"}
         return make_response(jsonify(msg))
     

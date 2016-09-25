@@ -512,6 +512,7 @@ def web_socket(socket):
     while not socket.closed:
         message = socket.receive()
         if message != 'ping':
+            logging.debug('message received : {0}'.format(message))
             payload = json.loads(message)
             to_act_rec = Account.query.filter_by(user_id=payload.to).first()
             if to_act_rec:

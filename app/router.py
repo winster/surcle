@@ -503,10 +503,17 @@ def get_account_product_all(user_id):
 clients = {}
 
 @ws.route('/socket')
-def echo_socket(ws):
-    ws.connection_id = uuid.uuid4()
+def web_socket(ws):
+    print 'inside web_socket'
+    connection_id = uuid.uuid4()
+    print 'connection id : {0}'.format(connection_id)
+    ws.connection_id = connection_id
+    print 'connection id set to websocket object'
+    print clients
     clients[ws.connection_id] = ws
-    ws.send({'connection_id':ws.connection_id})
+    print 'connection id pushed to clients'
+    if not ws.closed:
+        ws.send({'connection_id':ws.connection_id})
     while not ws.closed:
         message = ws.receive()
         ws.send(message)

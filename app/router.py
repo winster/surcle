@@ -506,12 +506,10 @@ socket_clients = {}
 def web_socket(socket):
     print 'inside web_socket'
     connection_id = uuid.uuid4()
-    print 'connection id : {0}'.format(connection_id)
-    print socket_clients
     socket_clients[connection_id] = socket
     print 'connection id pushed to clients'
     if not socket.closed:
-        socket.send({'connection_id':connection_id})
+        socket.send(json.dumps({'connection_id':connection_id}))
     while not socket.closed:
         message = socket.receive()
         if message != 'ping':

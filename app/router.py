@@ -1,7 +1,6 @@
 from flask import render_template, request, flash, redirect, url_for, jsonify, abort, make_response, Blueprint
 from flask_httpauth import HTTPBasicAuth
 from functools import wraps
-import json
 import psycopg2
 import sqlalchemy
 from sqlalchemy import text
@@ -17,8 +16,7 @@ import os
 from gcloud import storage
 import gevent
 from flask_sockets import Sockets
-import uuid
-
+import uuid,json,random,string
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)

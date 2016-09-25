@@ -503,17 +503,18 @@ def get_account_product_all(user_id):
 clients = {}
 
 @ws.route('/socket')
-def web_socket(ws):
+def web_socket(socket):
     print 'inside web_socket'
     connection_id = uuid.uuid4()
     print 'connection id : {0}'.format(connection_id)
-    ws.connection_id = connection_id
+    socket.connection_id = connection_id
     print 'connection id set to websocket object'
     print clients
-    clients[ws.connection_id] = ws
+    clients[connection_id] = socket
     print 'connection id pushed to clients'
-    if not ws.closed:
-        ws.send({'connection_id':ws.connection_id})
-    while not ws.closed:
-        message = ws.receive()
-        ws.send(message)
+    if not socket.closed:
+        socket.send({'connection_id':connection_id})
+    while not socket.closed:
+        message = socket.receive()
+        if message != 'ping':
+            socket.send(message)

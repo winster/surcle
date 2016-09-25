@@ -547,12 +547,12 @@ def receipt():
         return make_response(jsonify(msg))
     
     payload =   {
-                    'product_id':input.product_id, 
-                    'user':input.user, 
-                    'type':input.message_type, 
-                    'id':input.message_id
+                    'product_id':input['product_id'], 
+                    'user':input['user'], 
+                    'type':input['message_type'], 
+                    'id':input['message_id']
                 }
-    to_act_rec = Account.query.filter_by(user_id=input.to).first()
+    to_act_rec = Account.query.filter_by(user_id=input['to']).first()
     if to_act_rec:
         if to_act_rec.online is True and to_act_rec.connection_id and to_act_rec.connection_id in socket_clients:
             socket_clients[to_act_rec.connection_id].send(payload)

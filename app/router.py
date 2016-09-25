@@ -502,7 +502,7 @@ def get_account_product_all(user_id):
 
 socket_clients = {}
 
-@ws.route('/socket')
+@ws.route('/wssocket')
 #@auth.login_required
 def web_socket(socket):
     logging.debug('inside web_socket')
@@ -524,7 +524,7 @@ def web_socket(socket):
                     xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
                         
 
-@router.route('/v1.0/socket', methods=['DELETE'])
+@router.route('/v1.0/delete_socket', methods=['DELETE'])
 @auth.login_required
 def delete_socket():
     if not request.json.get('connection_id'):

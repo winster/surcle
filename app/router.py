@@ -560,7 +560,6 @@ def receipt():
             xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
             
 
-
 def random_id():
     rid = ''
     for x in range(8): rid += random.choice(string.ascii_letters + string.digits)
@@ -597,5 +596,5 @@ xmpp.add_event_handler(XMPPEvent.MESSAGE, onMessage)
 xmpp.connect(('gcm-preprod.googleapis.com', 5236), use_ssl=True)
 # xmpp.connect(('gcm-xmpp.googleapis.com', 5235), use_ssl=True)
 
-while True:
-    xmpp.process(block=True)
+#while True:
+#    xmpp.process(block=True)

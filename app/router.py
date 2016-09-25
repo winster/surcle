@@ -17,6 +17,7 @@ import os
 from gcloud import storage
 import gevent
 from flask_sockets import Sockets
+import uuid
 
 
 FORMAT = '%(message)s'
@@ -499,8 +500,13 @@ def get_account_product_all(user_id):
                 result[prod.product_id]['calendar']= calendar_rec.calendar
     return result
 
-@ws.route('/echo')
+clients = {}
+
+@ws.route('/socket')
 def echo_socket(ws):
+    ws.connection_id = uuid.uuid4()
+    clients[ws.connection_id] = ws
+    ws.send({'connection_id':ws.connection_id})
     while not ws.closed:
         message = ws.receive()
         ws.send(message)

@@ -505,7 +505,7 @@ socket_clients = {}
 @ws.route('/socket')
 def web_socket(socket):
     print 'inside web_socket'
-    connection_id = uuid.uuid4()
+    connection_id = random_id()
     socket_clients[connection_id] = socket
     print 'connection id pushed to clients'
     if not socket.closed:
@@ -514,3 +514,8 @@ def web_socket(socket):
         message = socket.receive()
         if message != 'ping':
             socket.send(message)
+
+def random_id():
+    rid = ''
+    for x in range(8): rid += random.choice(string.ascii_letters + string.digits)
+    return rid

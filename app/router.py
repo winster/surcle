@@ -17,6 +17,8 @@ from gcloud import storage
 import gevent
 from flask_sockets import Sockets
 import uuid,json,random,string
+from xmppgcm import GCM, XMPPEvent
+
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
@@ -501,19 +503,99 @@ def get_account_product_all(user_id):
 socket_clients = {}
 
 @ws.route('/socket')
+#@auth.login_required
 def web_socket(socket):
-    print 'inside web_socket'
+    logging.debug('inside web_socket')
     connection_id = random_id()
     socket_clients[connection_id] = socket
-    print 'connection id pushed to clients'
-    if not socket.closed:
-        socket.send(json.dumps({'connection_id':connection_id}))
+    socket.send(json.dumps({'connection_id':connection_id}))
     while not socket.closed:
         message = socket.receive()
         if message != 'ping':
-            socket.send(message)
+            payload = json.loads(message)
+            to_act_rec = Account.query.filter_by(user_id=payload.to).first()
+            if to_act_rec:
+                #handleMessageTypes(input.data) TODO such as calendar update
+                if to_act_rec.online is True and to_act_rec.connection_id and to_act_rec.connection_id in socket_clients:
+                    socket_clients[to_act_rec.connection_id].send(message)
+                else:
+                    options = { 'delivery_receipt_requested': True }
+                    xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
+                        
+
+@router.route('/v1.0/socket', methods=['DELETE'])
+@auth.login_required
+def delete_socket():
+    if not request.json.get('connection_id'):
+        abort(400)
+    else:
+        connection_id = request.json.get('connection_id')
+        del socket_clients[connection_id]
+        return make_response(jsonify({'result': 'success'}), 200)   
+
+
+# Message delivery receipt as well as payment card acknowledgement are handled here. 
+#Could not find a proper name, hence given receipt
+@router.route('/v1.0/receipt', methods=['POST'])
+@auth.login_required
+def receipt():
+    input = request.json
+    logging.debug('receipt: {0}', json.dumps(input))
+    if not input.user or not input.token or not input.to or not input.product_id or not input.message_id or not input.message_type:
+        msg = {error:"Input missing",errorCode:"101"}
+        return make_response(jsonify(msg))
+    
+    payload =   {
+                    'product_id':input.product_id, 
+                    'user':input.user, 
+                    'type':input.message_type, 
+                    'id':input.message_id
+                }
+    to_act_rec = Account.query.filter_by(user_id=input.to).first()
+    if to_act_rec:
+        if to_act_rec.online is True and to_act_rec.connection_id and to_act_rec.connection_id in socket_clients:
+            socket_clients[to_act_rec.connection_id].send(payload)
+        else:
+            options = { 'delivery_receipt_requested': True }
+            xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
+            
+
 
 def random_id():
     rid = ''
     for x in range(8): rid += random.choice(string.ascii_letters + string.digits)
     return rid
+
+def onDisconnect(draining):
+    print 'inside onDisconnect'
+    xmpp.connect(('gcm-preprod.googleapis.com', 5236), use_ssl=True)
+
+def onSessionStart(queue_length):
+    logging.debug('inside onSessionStart {0}'.format(queue_length))
+
+def onReceipt(data):
+    logging.debug('inside onReceipt {0}'.format(data))
+
+def onMessage(data):
+    logging.debug('inside onSessionStart {0}'.format(data))
+
+def onAcknowledge(error, message_id, _from):
+    if error != None:
+        logging.debug('not acknowledged by GCM')
+    logging.debug('id - {0} : from - {1}'.format(message_id, _from))
+
+
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
+logging.debug("Starting up")
+
+xmpp = GCM('640723155266@gcm.googleapis.com', 'AIzaSyC6jFXGk50i1dEfP0GJn5exE29j6z8O4h0')
+xmpp.add_event_handler(XMPPEvent.CONNECTED, onSessionStart)
+xmpp.add_event_handler(XMPPEvent.DISCONNECTED, onDisconnect)
+xmpp.add_event_handler(XMPPEvent.RECEIPT, onReceipt)
+xmpp.add_event_handler(XMPPEvent.MESSAGE, onMessage)
+
+xmpp.connect(('gcm-preprod.googleapis.com', 5236), use_ssl=True)
+# xmpp.connect(('gcm-xmpp.googleapis.com', 5235), use_ssl=True)
+
+while True:
+    xmpp.process(block=True)

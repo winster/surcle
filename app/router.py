@@ -500,17 +500,15 @@ def get_account_product_all(user_id):
                 result[prod.product_id]['calendar']= calendar_rec.calendar
     return result
 
-clients = {}
+socket_clients = {}
 
 @ws.route('/socket')
 def web_socket(socket):
     print 'inside web_socket'
     connection_id = uuid.uuid4()
     print 'connection id : {0}'.format(connection_id)
-    socket.connection_id = connection_id
-    print 'connection id set to websocket object'
-    print clients
-    clients[connection_id] = socket
+    print socket_clients
+    socket_clients[connection_id] = socket
     print 'connection id pushed to clients'
     if not socket.closed:
         socket.send({'connection_id':connection_id})

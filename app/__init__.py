@@ -2,6 +2,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, MigrateCommand
 from flask_script import Manager
+import gevent
+from flask_sockets import Sockets
 
 #app = Flask(__name__, static_url_path="/static")
 app = Flask(__name__)
@@ -26,9 +28,12 @@ manager.add_command('db', MigrateCommand)
 
 print "db migrated"
 
-from router import router
+
+from router import router, ws
 app.register_blueprint(router)
 
+sockets = Sockets(app)
+sockets.register_blueprint(ws)
 
 #@app.route('/')
 #def root():

@@ -15,11 +15,15 @@ from datetime import datetime
 import base64
 import os
 from gcloud import storage
+import gevent
+from flask_sockets import Sockets
+
 
 FORMAT = '%(message)s'
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 router = Blueprint('router', __name__)
+ws = Blueprint('ws', __name__)
 
 auth = HTTPBasicAuth()
 CLOUD_STORAGE_BUCKET = 'chirpy-images-bucket'
@@ -494,3 +498,9 @@ def get_account_product_all(user_id):
             if calendar_rec:
                 result[prod.product_id]['calendar']= calendar_rec.calendar
     return result
+
+@ws.route('/echo')
+def echo_socket(ws):
+    while not ws.closed:
+        message = ws.receive()
+        ws.send(message)

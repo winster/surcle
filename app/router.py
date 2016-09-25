@@ -518,8 +518,10 @@ def web_socket(socket):
             if to_act_rec:
                 #handleMessageTypes(input.data) TODO such as calendar update
                 if to_act_rec.online is True and to_act_rec.connection_id and to_act_rec.connection_id in socket_clients:
+                    logging.debug("sending via websocket")
                     socket_clients[to_act_rec.connection_id].send(message)
                 else:
+                    logging.debug("sending via gcm")
                     options = { 'delivery_receipt_requested': True }
                     xmpp.send_gcm(to_act_rec.device_token, payload, options, onAcknowledge)
                         
